@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة التقييمات المطور (Firebase)</title>
+    <title>نظام إدارة التقييمات المطور </title>
     <!-- Include SheetJS library for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        /* ... نفس أكواد الـ CSS بالضبط ... */
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
         
         :root {
@@ -16,7 +15,12 @@
             --header-bg: linear-gradient(135deg, #2a3342, #1d242e); --success-color: #1a936f; --danger-color: #d9455f;
             --table-header-bg: #eef2f7; --table-row-hover: #f0f4f8; --highlight-color: #cce5ff;
             --input-focus-shadow: rgba(0, 120, 212, 0.25);
-            --subjects-header-bg: #e6f2ff; --exam-header-bg: #fff4e6;
+            
+            /* MODIFIED: تعريف ألوان الخلفية للأشهر والأسابيع */
+            --month-1-header-bg: #e6f2ff; --month-1-week-odd-bg: #f0f7ff; --month-1-week-even-bg: #e6f2ff;
+            --month-2-header-bg: #e6fffa; --month-2-week-odd-bg: #f0fff7; --month-2-week-even-bg: #e6fffa;
+            --month-3-header-bg: #fff4e6; --month-3-week-odd-bg: #fffaf0; --month-3-week-even-bg: #fff4e6;
+            --exam-header-bg: #fde6e6;
         }
 
         body.dark-mode {
@@ -25,7 +29,12 @@
             --header-bg: #1e1e1e; --success-color: #23c596; --danger-color: #ff667f;
             --table-header-bg: #2a2a2a; --table-row-hover: #2c2c2c; --highlight-color: #003866;
             --input-focus-shadow: rgba(0, 149, 255, 0.25);
-            --subjects-header-bg: #002a4d; --exam-header-bg: #4d3200;
+
+            /* MODIFIED: تعريف ألوان الخلفية للأشهر والأسابيع في الوضع الليلي */
+            --month-1-header-bg: #002a4d; --month-1-week-odd-bg: #1c2533; --month-1-week-even-bg: #182029;
+            --month-2-header-bg: #004d3d; --month-2-week-odd-bg: #1e2b1e; --month-2-week-even-bg: #1a241a;
+            --month-3-header-bg: #4d3200; --month-3-week-odd-bg: #2b281e; --month-3-week-even-bg: #24211a;
+            --exam-header-bg: #4d1a1a;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -57,29 +66,35 @@
         .master-sheet-container { width: 100%; max-height: 70vh; overflow: auto; border-radius: 12px; border: 1px solid var(--border-color); }
         .master-sheet { width: 100%; border-collapse: separate; border-spacing: 0; }
         .master-sheet th { position: sticky; top: 0; background: var(--table-header-bg); color: var(--text-color); z-index: 10; padding: 12px 8px; font-size: 0.9rem; border-bottom: 2px solid #b0b9c2; border-left: 1px solid var(--border-color); transition: background-color 0.3s ease, color 0.3s ease; }
-        .master-sheet td { border-bottom: 1px solid var(--border-color); border-left: 1px solid var(--border-color); }
+        .master-sheet td { border-bottom: 1px solid var(--border-color); border-left: 1px solid var(--border-color); transition: background-color 0.3s ease; }
         .master-sheet th:first-child, .master-sheet td:first-child { position: sticky; right: 0; z-index: 11; font-weight: 700; border-right: 2px solid #b0b9c2; }
-        .master-sheet td:first-child { background: var(--card-bg-color); transition: background-color 0.3s ease; }
-        .master-sheet th:first-child { background: var(--table-header-bg); transition: background-color 0.3s ease; }
-        .master-sheet tbody tr:hover td { background-color: var(--table-row-hover); }
+        .master-sheet td:first-child { background: var(--card-bg-color); }
+        .master-sheet th:first-child { background: var(--table-header-bg); }
+        .master-sheet tbody tr:hover td { filter: brightness(0.95); }
+        .master-sheet tbody tr:hover td:first-child { filter: none; background-color: var(--table-row-hover); }
         .master-sheet-input { width: 100%; height: 100%; text-align: center; padding: 10px 5px; border: none; background-color: transparent; color: var(--text-color); transition: all 0.2s ease; }
         .master-sheet-input.invalid { background-color: rgba(217, 69, 95, 0.3); }
         .master-sheet-input.saved-flash { animation: saved-pulse 0.7s ease-out; }
         @keyframes saved-pulse { 0% { background-color: rgba(26, 147, 111, 0.3); } 100% { background-color: transparent; } }
 
         .vertical-header {
-            height: 200px;
-            white-space: nowrap;
-            vertical-align: middle;
-            text-align: center;
-            padding: 8px 4px !important;
-            writing-mode: vertical-rl;
-            transform: rotate(180deg);
-            font-size: 0.9rem;
+            height: 200px; white-space: nowrap; vertical-align: middle; text-align: center;
+            padding: 8px 4px !important; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.9rem;
         }
 
-        .month-header-1, .month-header-2, .month-header-3 { background-color: var(--subjects-header-bg) !important; }
+        /* MODIFIED: تلوين رؤوس الأعمدة الشهرية الرئيسية */
+        .month-header-1 { background-color: var(--month-1-header-bg) !important; }
+        .month-header-2 { background-color: var(--month-2-header-bg) !important; }
+        .month-header-3 { background-color: var(--month-3-header-bg) !important; }
         .exam-header-col { background-color: var(--exam-header-bg) !important; vertical-align: middle; }
+        
+        /* MODIFIED: تلوين خلفيات الأسابيع المتناوبة */
+        .month-1-week-odd-bg { background-color: var(--month-1-week-odd-bg) !important; }
+        .month-1-week-even-bg { background-color: var(--month-1-week-even-bg) !important; }
+        .month-2-week-odd-bg { background-color: var(--month-2-week-odd-bg) !important; }
+        .month-2-week-even-bg { background-color: var(--month-2-week-even-bg) !important; }
+        .month-3-week-odd-bg { background-color: var(--month-3-week-odd-bg) !important; }
+        .month-3-week-even-bg { background-color: var(--month-3-week-even-bg) !important; }
         
         .student-management-grid { display: grid; grid-template-columns: 1fr auto; gap: 15px; align-items: end; }
         .student-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color); }
@@ -102,7 +117,7 @@
             <button id="darkModeToggle" title="تبديل الوضع">
                 <svg id="darkModeIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278z"/></svg>
             </button>
-            <h1>نظام إدارة التقييمات المطور </h1><p>واجهة تفاعلية لإدارة بيانات الطلاب بكفاءة</p></header>
+            <h1>نظام إدارة التقييمات المطور</h1><p>واجهة تفاعلية لإدارة بيانات الطلاب بكفاءة</p></header>
         <div class="tabs">
             <button class="tab active" onclick="showTab('input')">📝 لوحة التحكم</button>
             <button class="tab" onclick="showTab('results')">📊 تقرير النتائج</button>
@@ -134,7 +149,6 @@
 
 <script>
 // FIREBASE: START - قم بلصق إعدادات Firebase الخاصة بك هنا
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyA2VDO_vXe8q5Pfon2BGPoL3tD0IKbkBhg",
   authDomain: "students-grade-management.firebaseapp.com",
@@ -158,25 +172,22 @@ const SUBJECT_KEYS = Object.keys(SUBJECTS);
 const MONTH_KEYS = ['M1', 'M2', 'M3'], WEEKS = ['W1', 'W2', 'W3', 'W4'];
 const MAX_GRADE = 20;
 const EXAM_MAX_GRADE = 15;
+let initialDataLoaded = false;
 
 // --- INITIALIZATION & DATA HANDLING ---
 function initSystem() {
-    // FIREBASE: لم نعد نستخدم localStorage للبيانات، فقط للثيم الداكن
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.body.classList.toggle('dark-mode', savedTheme === 'dark');
     updateDarkModeIcon(savedTheme === 'dark');
     
-    // FIREBASE: نستمع للتغييرات في قاعدة البيانات بشكل فوري
     database.ref('app_data').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            // FIREBASE: نحول كائن الطلاب إلى مصفوفة أسماء
             students = data.students ? Object.keys(data.students) : [];
             grades = data.grades || {};
             examGrades = data.examGrades || {};
             monthNames = data.monthNames || { M1: 'الشهر الأول', M2: 'الشهر الثاني', M3: 'الشهر الثالث' };
         } else {
-            // FIREBASE: بيانات فارغة في حال كانت أول مرة
             students = []; grades = {}; examGrades = {};
             monthNames = { M1: 'الشهر الأول', M2: 'الشهر الثاني', M3: 'الشهر الثالث' };
         }
@@ -184,16 +195,17 @@ function initSystem() {
         document.getElementById('monthName2').value = monthNames.M2;
         document.getElementById('monthName3').value = monthNames.M3;
         
-        // FIREBASE: تحديث واجهة المستخدم كلما تغيرت البيانات في Firebase
         refreshUI();
-        showAlert('تمت مزامنة البيانات من السحابة.', 'success');
+        
+        if (!initialDataLoaded) {
+            showAlert('تم تحميل البيانات بنجاح.', 'success');
+            initialDataLoaded = true;
+        }
     });
 }
 
-// FIREBASE: لم نعد بحاجة لدالة saveData(). التغييرات تُحفظ مباشرة في Firebase.
 
 // --- UI GENERATION & UPDATES ---
-// ... دالة generateMasterSheet كما هي بدون تغيير ...
 function generateMasterSheet() {
     const container = document.getElementById('masterSheetContainer');
     if (students.length === 0) { container.innerHTML = `<p style="text-align: center; color: var(--text-secondary-color); padding:30px;">أضف الطلاب أولاً لبدء العمل.</p>`; return; }
@@ -201,46 +213,78 @@ function generateMasterSheet() {
     let headerHTML = `<thead><tr><th rowspan="2" style="vertical-align: middle;">اسم الطالب</th>`;
     MONTH_KEYS.forEach((mKey, index) => headerHTML += `<th colspan="${WEEKS.length * SUBJECT_KEYS.length}" class="month-header-${index + 1}">${monthNames[mKey]}</th>`);
     headerHTML += `<th colspan="2" class="exam-header-col">الامتحانات النهائية</th></tr><tr>`;
-    MONTH_KEYS.forEach((mKey, index) => WEEKS.forEach((w, wIndex) => SUBJECT_KEYS.forEach(sKey => {
-        headerHTML += `<th class="vertical-header month-header-${index + 1}">${SUBJECTS[sKey]} - أ${wIndex+1}</th>`;
-    })));
+    
+    // MODIFIED: تلوين رؤوس الأعمدة الرأسية
+    MONTH_KEYS.forEach((mKey, mIndex) => {
+        WEEKS.forEach((wKey, wIndex) => {
+            const weekBgClass = wIndex % 2 === 0 ? `month-${mIndex + 1}-week-odd-bg` : `month-${mIndex + 1}-week-even-bg`;
+            SUBJECT_KEYS.forEach(sKey => {
+                headerHTML += `<th class="vertical-header ${weekBgClass}">${SUBJECTS[sKey]} - أ${wIndex + 1}</th>`;
+            });
+        });
+    });
     headerHTML += `<th class="exam-header-col">امتحان 1</th><th class="exam-header-col">امتحان 2</th></tr></thead>`;
 
     let bodyHTML = '<tbody>';
     students.forEach(student => {
         bodyHTML += `<tr class="student-row" id="student-row-${student}"><td>${student}</td>`;
-        MONTH_KEYS.forEach(mKey => WEEKS.forEach(wKey => SUBJECT_KEYS.forEach(sKey => {
-            const grade = grades[student]?.[mKey]?.[wKey]?.[sKey] ?? '';
-            bodyHTML += `<td><input type="text" class="master-sheet-input" value="${grade}" data-student="${student}" data-month="${mKey}" data-week="${wKey}" data-subject="${sKey}"></td>`;
-        })));
-        bodyHTML += `<td><input type="text" class="master-sheet-input exam-col-group" value="${examGrades[student]?.exam1 ?? ''}" data-student="${student}" data-exam="exam1"></td>`;
-        bodyHTML += `<td><input type="text" class="master-sheet-input exam-col-group" value="${examGrades[student]?.exam2 ?? ''}" data-student="${student}" data-exam="exam2"></td>`;
+        // MODIFIED: تلوين خلايا إدخال الدرجات
+        MONTH_KEYS.forEach((mKey, mIndex) => {
+            WEEKS.forEach((wKey, wIndex) => {
+                const weekBgClass = wIndex % 2 === 0 ? `month-${mIndex + 1}-week-odd-bg` : `month-${mIndex + 1}-week-even-bg`;
+                SUBJECT_KEYS.forEach(sKey => {
+                    const grade = grades[student]?.[mKey]?.[wKey]?.[sKey] ?? '';
+                    bodyHTML += `<td class="${weekBgClass}"><input type="text" class="master-sheet-input" value="${grade}" data-student="${student}" data-month="${mKey}" data-week="${wKey}" data-subject="${sKey}"></td>`;
+                });
+            });
+        });
+        bodyHTML += `<td class="exam-header-col"><input type="text" class="master-sheet-input exam-col-group" value="${examGrades[student]?.exam1 ?? ''}" data-student="${student}" data-exam="exam1"></td>`;
+        bodyHTML += `<td class="exam-header-col"><input type="text" class="master-sheet-input exam-col-group" value="${examGrades[student]?.exam2 ?? ''}" data-student="${student}" data-exam="exam2"></td>`;
         bodyHTML += `</tr>`;
     });
     container.innerHTML = `<table class="master-sheet">${headerHTML}${bodyHTML}</tbody></table>`;
     container.addEventListener('change', handleGradeChange); container.addEventListener('keydown', handleKeyboardNav);
 }
 
-// ... دالة updateResultsTable كما هي بدون تغيير ...
 function updateResultsTable() {
     const container = document.getElementById('resultsTableContainer');
-    if (students.length === 0) { container.innerHTML = `<p style="text-align: center; color: var(--text-secondary-color); padding: 30px;">لا يوجد طلاب لعرض نتائجهم</p>`; return; }
+    if (students.length === 0) {
+        container.innerHTML = `<p style="text-align: center; color: var(--text-secondary-color); padding: 30px;">لا يوجد طلاب لعرض نتائجهم</p>`;
+        return;
+    }
 
-    let table = `<table class="master-sheet" id="resultsExportTable"><thead><tr><th rowspan="2" style="vertical-align:middle;">اسم الطالب</th>`;
+    // MODIFIED: إزالة عمود أعمال السنة
+    let table = `<table class="master-sheet" id="resultsExportTable"><thead><tr>`;
+    table += `<th rowspan="2" style="vertical-align:middle;">اسم الطالب</th>`;
     MONTH_KEYS.forEach((mKey, i) => table += `<th colspan="${SUBJECT_KEYS.length}" class="month-header-${i+1}">${monthNames[mKey]}</th>`);
-    table += `<th colspan="${SUBJECT_KEYS.length}" style="background-color: var(--subjects-header-bg)">📊 متوسط 3 أشهر</th>`;
-    table += `<th colspan="2" class="exam-header-col">📝 الامتحانات</th></tr><tr>`;
+    table += `<th colspan="2" class="exam-header-col">📝 الامتحانات</th>`;
+    table += `<th rowspan="2" style="background-color: var(--primary-color); color: white; vertical-align:middle;">المجموع النهائي (70)</th>`;
+    table += `</tr><tr>`;
+    
     MONTH_KEYS.forEach((mKey, i) => { SUBJECT_KEYS.forEach(sKey => { table += `<th class="month-header-${i+1}" style="vertical-align:middle;">${SUBJECTS[sKey]}</th>`; }); });
-    SUBJECT_KEYS.forEach(sKey => { table += `<th style="background-color: var(--subjects-header-bg); vertical-align:middle;">${SUBJECTS[sKey]}</th>`; });
-    table += `<th class="exam-header-col" style="vertical-align:middle;">امتحان 1</th><th class="exam-header-col" style="vertical-align:middle;">امتحان 2</th></tr></thead><tbody>`;
+    table += `<th class="exam-header-col" style="vertical-align:middle;">امتحان 1</th>`;
+    table += `<th class="exam-header-col" style="vertical-align:middle;">امتحان 2</th>`;
+    table += `</tr></thead><tbody>`;
 
     students.forEach(student => {
-        const sGrades = grades[student] || {}, exams = examGrades[student] || {};
+        const sGrades = grades[student] || {};
+        const exams = examGrades[student] || {};
         table += `<tr><td><strong>${student}</strong></td>`;
-        MONTH_KEYS.forEach(mKey => { SUBJECT_KEYS.forEach(subKey => { const subMonthAvg = calculateMonthSubjectAverage(sGrades, mKey, subKey); table += `<td style="font-weight:bold;">${subMonthAvg !== null ? subMonthAvg : '-'}</td>`; }); });
-        SUBJECT_KEYS.forEach(subKey => { const avg = calculateSubject3MonthAverage(sGrades, subKey); table += `<td style="background: var(--subjects-header-bg); font-weight: bold; color: var(--primary-color);">${avg !== null ? avg : '-'}</td>`; });
+        
+        MONTH_KEYS.forEach((mKey, mIndex) => {
+            const weekBgClass = `month-${mIndex + 1}-week-odd-bg`; // استخدام لون واحد لكل شهر في جدول النتائج للتبسيط
+            SUBJECT_KEYS.forEach(subKey => {
+                const subMonthAvg = calculateMonthSubjectAverage(sGrades, mKey, subKey);
+                table += `<td style="font-weight:bold;" class="${weekBgClass}">${subMonthAvg !== null ? subMonthAvg : '-'}</td>`;
+            });
+        });
+        
         table += `<td style="font-weight: bold;">${exams.exam1 ?? '-'}</td>`;
         table += `<td style="font-weight: bold;">${exams.exam2 ?? '-'}</td>`;
+
+        const finalScores = calculateGrandTotal(student);
+        table += `<td style="font-weight: bold; font-size: 1.1rem; color: var(--primary-color); background: var(--highlight-color);">${finalScores.total ?? '-'}</td>`;
+        
         table += `</tr>`;
     });
     container.innerHTML = table + '</tbody></table>';
@@ -256,7 +300,6 @@ function handleGradeChange(e) {
     const { student, month, week, subject, exam } = input.dataset;
 
     if (value === '') {
-        // FIREBASE: حذف القيمة من قاعدة البيانات
         let path;
         if (exam) { path = `app_data/examGrades/${student}/${exam}`; } 
         else { path = `app_data/grades/${student}/${month}/${week}/${subject}`; }
@@ -270,7 +313,6 @@ function handleGradeChange(e) {
             return;
         }
         
-        // FIREBASE: كتابة القيمة في قاعدة البيانات
         let path;
         if (exam) { path = `app_data/examGrades/${student}/${exam}`; } 
         else { path = `app_data/grades/${student}/${month}/${week}/${subject}`; }
@@ -279,13 +321,36 @@ function handleGradeChange(e) {
         input.value = grade;
     }
     input.classList.add('saved-flash');
-    // FIREBASE: لا داعي لاستدعاء updateResultsTable() أو saveData() هنا. المستمع (on.value) سيهتم بالتحديث.
 }
 
 // --- CALCULATIONS ---
-// ... دالتي الحساب كما هما بدون تغيير ...
 function calculateMonthSubjectAverage(studentGrades, month, subject) { if (!studentGrades?.[month]) return null; let total = 0, count = 0; WEEKS.forEach(week => { if (studentGrades[month]?.[week]?.[subject] !== undefined && studentGrades[month][week][subject] !== null) { total += studentGrades[month][week][subject]; count++; } }); return count > 0 ? (total / count).toFixed(1) : null; }
 function calculateSubject3MonthAverage(studentGrades, subject) { let total = 0, count = 0; MONTH_KEYS.forEach(month => { const avg = calculateMonthSubjectAverage(studentGrades, month, subject); if (avg !== null) { total += parseFloat(avg); count++; } }); return count > 0 ? (total / count).toFixed(1) : null; }
+function calculateGrandTotal(student) { // MODIFIED: إزالة حساب أعمال السنة كوسيط
+    const sGrades = grades[student] || {};
+    const exams = examGrades[student] || {};
+
+    const avgAttendance = calculateSubject3MonthAverage(sGrades, 'Attendance');
+    const avgHomework = calculateSubject3MonthAverage(sGrades, 'Homework');
+    const avgWeeklyEval = calculateSubject3MonthAverage(sGrades, 'WeeklyEval');
+    
+    const exam1 = exams.exam1;
+    const exam2 = exams.exam2;
+
+    if (avgAttendance === null || avgHomework === null || avgWeeklyEval === null || exam1 === null || exam2 === null || exam1 === '' || exam2 === '') {
+        return { total: null };
+    }
+
+    try {
+        const yearWorkOutOf20 = (parseFloat(avgAttendance) + parseFloat(avgHomework) + parseFloat(avgWeeklyEval)) / 3;
+        const yearWorkOutOf40 = yearWorkOutOf20 * 2;
+        const grandTotal = yearWorkOutOf40 + parseFloat(exam1) + parseFloat(exam2);
+
+        return { total: grandTotal.toFixed(1) };
+    } catch (e) {
+        return { total: null };
+    }
+}
 
 // --- HELPER & UTILITY FUNCTIONS ---
 function showTab(tabName) { document.querySelectorAll('.tab-content, .tab').forEach(el => el.classList.remove('active')); document.getElementById(tabName + '-tab').classList.add('active'); event.currentTarget.classList.add('active'); if (tabName === 'results') { updateResultsTable(); } }
@@ -295,9 +360,8 @@ function updateMonthNames() {
         M2: document.getElementById('monthName2').value.trim() || 'الشهر الثاني',
         M3: document.getElementById('monthName3').value.trim() || 'الشهر الثالث'
     };
-    // FIREBASE: حفظ أسماء الأشهر مباشرة في قاعدة البيانات
     database.ref('app_data/monthNames').set(newMonthNames)
-        .then(() => showAlert('تم تحديث أسماء الأشhor.', 'success'))
+        .then(() => showAlert('تم تحديث أسماء الأشهر.', 'success'))
         .catch(err => showAlert('خطأ: ' + err.message, 'error'));
 }
 function addStudent() { const input = document.getElementById('newStudentName'); addStudentLogic(input.value.trim(), () => { input.value = ''; }); }
@@ -305,11 +369,10 @@ function addStudentLogic(name, callback) {
     if (!name) { showAlert('يرجى إدخال اسم الطالب', 'error'); return; }
     if (students.includes(name)) { if (document.activeElement.id === 'newStudentName') showAlert('هذا الطالب موجود بالفعل', 'error'); return; }
     
-    // FIREBASE: إضافة الطالب في عدة أماكن بشكل آمن
     const updates = {};
-    updates[`app_data/students/${name}`] = true; // نستخدم الكائن لتسهيل الحذف والإضافة
-    updates[`app_data/grades/${name}`] = {}; // نهيئ له كائن درجات فارغ
-    updates[`app_data/examGrades/${name}`] = { exam1: null, exam2: null }; // نهيئ له كائن امتحانات فارغ
+    updates[`app_data/students/${name}`] = true;
+    updates[`app_data/grades/${name}`] = {};
+    updates[`app_data/examGrades/${name}`] = { exam1: null, exam2: null };
 
     database.ref().update(updates)
         .then(() => { if (callback) callback(); })
@@ -318,9 +381,8 @@ function addStudentLogic(name, callback) {
 
 function removeStudent(studentName) {
     if (confirm(`هل أنت متأكد من حذف الطالب "${studentName}" وكل درجاته؟`)) {
-        // FIREBASE: حذف الطالب من كل الأماكن في قاعدة البيانات
         const updates = {};
-        updates[`app_data/students/${studentName}`] = null; // الحذف يتم بوضع القيمة null
+        updates[`app_data/students/${studentName}`] = null;
         updates[`app_data/grades/${studentName}`] = null;
         updates[`app_data/examGrades/${studentName}`] = null;
 
@@ -357,14 +419,12 @@ function importStudents(event) {
 
 function startNewYear() {
     if (confirm("تحذير: هل أنت متأكد من رغبتك في حذف جميع الطلاب والدرجات لبدء سنة جديدة؟\nلا يمكن التراجع عن هذا الإجراء!")) {
-        // FIREBASE: حذف جميع بيانات التطبيق
         database.ref('app_data').remove()
             .then(() => showAlert("تم إعادة تعيين النظام بنجاح.", 'success'))
             .catch(err => showAlert('خطأ في إعادة التعيين: ' + err.message, 'error'));
     }
 }
 
-// ... باقي الدوال المساعدة كما هي بدون تغيير جوهري ...
 function jumpToStudent(selectElement, rowIdPrefix) { const studentName = selectElement.value; if (!studentName) return; const row = document.getElementById(`${rowIdPrefix}${studentName}`); if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); const firstInput = row.querySelector('.master-sheet-input'); if (firstInput) { firstInput.focus(); firstInput.select(); } } selectElement.value = ''; }
 function populateJumpSelects() { const masterSelect = document.getElementById('studentJumpSelect'); masterSelect.innerHTML = '<option value="">اختر طالباً...</option>'; students.sort((a, b) => a.localeCompare(b, 'ar')).forEach(s => { const option = document.createElement('option'); option.value = s; option.textContent = s; masterSelect.appendChild(option); }); }
 function filterStudentList() { const searchTerm = document.getElementById('studentSearchInput').value.toLowerCase().trim(); const allTags = document.querySelectorAll('#studentList .student-tag'); allTags.forEach(tag => { const studentName = tag.querySelector('span').textContent.toLowerCase(); if (studentName.includes(searchTerm)) { tag.style.display = 'flex'; } else { tag.style.display = 'none'; } }); }
